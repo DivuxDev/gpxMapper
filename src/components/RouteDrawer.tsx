@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useRoute } from '../hooks/useRoute'
 import { useRouteStore } from '../store/useRouteStore'
+import { useT } from '../hooks/useT'
 import { ElevationChart } from './ElevationChart'
 import { ExportButton } from './ExportButton'
 import { formatDistance, formatElevation } from '../utils/formatters'
@@ -20,6 +21,8 @@ export function RouteDrawer() {
   const drawerOpen = useRouteStore((s) => s.drawerOpen)
   const setDrawerOpen = useRouteStore((s) => s.setDrawerOpen)
   const routingError = useRouteStore((s) => s.routingError)
+  const setHoverPoint = useRouteStore((s) => s.setHoverPoint)
+  const t = useT()
   const {
     elevationProfile,
     totalDistance,
@@ -44,9 +47,15 @@ export function RouteDrawer() {
   function onTouchEnd(e: React.TouchEvent) {
     if (startY.current == null) return
     const delta = startY.current - e.changedTouches[0].clientY
-    if (Math.abs(delta) < 20) return // umbral mínimo
-    setDrawerOpen(delta > 0) // swipe up → abrir, swipe down → cerrar
     startY.current = null
+    e.preventDefault() // evita que el browser genere un click sintético posterior
+    if (Math.abs(delta) < 20) {
+      // Tap → toggle usando el valor capturado al inicio del toque
+      setDrawerOpen(!startOpen.current)
+    } else {
+      // Swipe → dirección
+      setDrawerOpen(delta > 0)
+    }
   }
 
   const drawerStyle = drawerOpen
@@ -70,7 +79,7 @@ export function RouteDrawer() {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onClick={() => setDrawerOpen(!drawerOpen)}
-        aria-label={drawerOpen ? 'Cerrar panel' : 'Abrir panel'}
+        aria-label={drawerOpen ? t.closePanel : t.openPanel}
       >
         <div className="w-10 h-1.5 rounded-full bg-gray-300" />
       </button>
@@ -78,9 +87,9 @@ export function RouteDrawer() {
       {/* ── Barra de estadísticas (siempre visible) ────────────────────────── */}
       <div className="flex items-center justify-between px-4 pb-2 gap-2 flex-shrink-0">
         <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-          <StatPill label="Distancia" value={formatDistance(totalDistance)} />
-          <StatPill label="D+" value={formatElevation(totalElevationGain)} />
-          <StatPill label="Puntos" value={`${waypoints.length}`} />
+          <StatPill label={t.statDistance} value={formatDistance(totalDistance)} />
+          <StatPill label={t.statElevGain} value={formatElevation(totalElevationGain)} />
+          <StatPill label={t.statPoints} value={`${waypoints.length}`} />
         </div>
 
         {/* Acciones rápidas */}
@@ -88,7 +97,7 @@ export function RouteDrawer() {
           <button
             onClick={undo}
             disabled={!canUndo}
-            title="Deshacer"
+            title={t.undo}
             className="p-2.5 rounded-xl bg-gray-100 disabled:opacity-40 active:scale-95 transition-transform min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -99,7 +108,7 @@ export function RouteDrawer() {
           <button
             onClick={redo}
             disabled={!canRedo}
-            title="Rehacer"
+            title={t.redo}
             className="p-2.5 rounded-xl bg-gray-100 disabled:opacity-40 active:scale-95 transition-transform min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -122,20 +131,18 @@ export function RouteDrawer() {
         <div className="flex flex-col flex-1 min-h-0 px-4 pb-4 gap-3">
           {/* Gráfico de elevación */}
           <div className="flex-1 min-h-0">
-            <ElevationChart data={elevationProfile} />
+            <ElevationChart data={elevationProfile} onHoverPoint={setHoverPoint} />
           </div>
 
           {/* Botones de acción */}
           <div className="flex gap-2 flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             <ExportButton />
             <button
-              onClick={() => {
-                if (globalThis.confirm('\u00bfLimpiar toda la ruta?')) clearRoute()
-              }}
+              onClick={clearRoute}
               className="flex-1 px-3 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-medium
                 active:scale-95 transition-transform min-h-[44px]"
             >
-              Limpiar
+              {t.clear}
             </button>
           </div>
         </div>

@@ -26,6 +26,9 @@ export interface ElevationPoint {
   distance: number
   /** Elevación en metros */
   elevation: number
+  /** Coordenadas del punto (para el crosshair en el mapa) */
+  lat: number
+  lng: number
 }
 
 // ─── Capa de mapa disponible ───────────────────────────────────────────────────

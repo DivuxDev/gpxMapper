@@ -8,6 +8,7 @@ import type {
   RoutingProfile,
   LatLng,
 } from '../types'
+import type { Locale } from '../i18n'
 
 // ─── Estado completo de la app ─────────────────────────────────────────────────
 interface RouteState {
@@ -19,9 +20,11 @@ interface RouteState {
   // UI
   activeLayer: MapLayer
   routingProfile: RoutingProfile
+  locale: Locale
   drawerOpen: boolean
   isRouting: boolean
   routingError: string | null
+  hoverPoint: LatLng | null
 
   // Undo / Redo
   past: Array<{ waypoints: Waypoint[]; segments: RouteSegment[] }>
@@ -38,6 +41,8 @@ interface RouteState {
   setDrawerOpen: (open: boolean) => void
   setIsRouting: (routing: boolean) => void
   setRoutingError: (error: string | null) => void
+  setHoverPoint: (pt: LatLng | null) => void
+  setLocale: (locale: Locale) => void
   clearRoute: () => void
   undo: () => void
   redo: () => void
@@ -64,9 +69,11 @@ export const useRouteStore = create<RouteState>()(
       activeLayer: 'osm',
       routingProfile:
         (import.meta.env.VITE_GH_DEFAULT_PROFILE as RoutingProfile) || 'foot',
+      locale: (navigator.language?.slice(0, 2).toLowerCase() === 'en' ? 'en' : 'es') as Locale,
       drawerOpen: false,
       isRouting: false,
       routingError: null,
+      hoverPoint: null,
       past: [],
       future: [],
 
@@ -130,6 +137,8 @@ export const useRouteStore = create<RouteState>()(
       setDrawerOpen: (open) => set({ drawerOpen: open }),
       setIsRouting: (routing) => set({ isRouting: routing }),
       setRoutingError: (error) => set({ routingError: error }),
+      setHoverPoint: (pt) => set({ hoverPoint: pt }),
+      setLocale: (locale) => set({ locale }),
 
       clearRoute: () =>
         set({
@@ -193,6 +202,7 @@ export const useRouteStore = create<RouteState>()(
         elevationProfile: state.elevationProfile,
         activeLayer: state.activeLayer,
         routingProfile: state.routingProfile,
+        locale: state.locale,
       }),
     },
   ),

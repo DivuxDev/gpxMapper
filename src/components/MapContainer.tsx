@@ -4,6 +4,7 @@ import {
   TileLayer,
   Polyline,
   Marker,
+  CircleMarker,
   useMapEvents,
   useMap,
 } from 'react-leaflet'
@@ -11,6 +12,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useRoute } from '../hooks/useRoute'
 import { useRouteStore } from '../store/useRouteStore'
+import { useT } from '../hooks/useT'
 import type { LatLng, MapLayer } from '../types'
 
 // ── Fix ícono de Leaflet con bundlers (Vite) ────────────────────────────────────
@@ -21,23 +23,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 })
 
-// ── Ícono personalizado para waypoints ─────────────────────────────────────────
+// ── Ícono de waypoint — bola circular ────────────────────────────────────────────
 function makeWaypointIcon(index: number, total: number) {
   const isFirst = index === 0
   const isLast = index === total - 1
-  let color = '#3b82f6'
-  if (isFirst) color = '#22c55e'
-  else if (isLast) color = '#ef4444'
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.94 14 22 14 22S28 23.94 28 14C28 6.27 21.73 0 14 0z"
-        fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="14" cy="14" r="6" fill="white"/>
-    </svg>`
+  let fill = '#3b82f6'
+  if (isFirst) fill = '#22c55e'
+  else if (isLast) fill = '#ef4444'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="${fill}" stroke="white" stroke-width="2.5"/></svg>`
   return L.divIcon({
     html: svg,
-    iconSize: [28, 36],
-    iconAnchor: [14, 36],
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
     className: '',
   })
 }
@@ -123,12 +120,17 @@ interface ClickHandlerProps {
 }
 
 function ClickHandler({ onMapClick, onCloseMenu }: ClickHandlerProps) {
-  useMapEvents({
+  const map = useMapEvents({
     click(e) {
       onCloseMenu()
       onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng })
     },
   })
+  useEffect(() => {
+    const container = map.getContainer()
+    container.style.cursor = 'crosshair'
+    return () => { container.style.cursor = '' }
+  }, [map])
   return null
 }
 
@@ -184,12 +186,13 @@ interface ContextMenuProps {
 }
 
 function ContextMenu({ x, y, onDelete, onClose }: Readonly<ContextMenuProps>) {
+  const t = useT()
   return (
     <>
       {/* Overlay transparente para cerrar al tocar fuera */}
       <button
         type="button"
-        aria-label="Cerrar menú"
+        aria-label="Close menu"
         className="absolute inset-0 z-[1001] w-full h-full cursor-default"
         onClick={onClose}
       />
@@ -207,7 +210,7 @@ function ContextMenu({ x, y, onDelete, onClose }: Readonly<ContextMenuProps>) {
             stroke="currentColor" strokeWidth={2}>
             <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Eliminar punto
+          {t.deletePoint}
         </button>
       </div>
     </>
@@ -218,6 +221,8 @@ function ContextMenu({ x, y, onDelete, onClose }: Readonly<ContextMenuProps>) {
 export function MapContainer() {
   const { addPoint, recalcSegmentsForWaypoint, removeWaypoint, waypoints, segments, isRouting } = useRoute()
   const activeLayer = useRouteStore((s) => s.activeLayer)
+  const hoverPoint = useRouteStore((s) => s.hoverPoint)
+  const t = useT()
 
   const tileLayer = TILE_LAYERS[activeLayer]
 
@@ -238,7 +243,7 @@ export function MapContainer() {
           <span
             className="w-4 h-4 border-2 border-trail-500 border-t-transparent rounded-full animate-spin"
           />
-          {' '}Trazando ruta…
+          {' '}{t.routingLoading}
         </div>
       )}
 
@@ -284,6 +289,15 @@ export function MapContainer() {
 
         {/* Handler de clicks en el mapa */}
         <ClickHandler onMapClick={addPoint} onCloseMenu={() => setContextMenu(null)} />
+
+        {/* Marcador de hover desde el gráfico de elevación */}
+        {hoverPoint && typeof hoverPoint.lat === 'number' && typeof hoverPoint.lng === 'number' && (
+          <CircleMarker
+            center={[hoverPoint.lat, hoverPoint.lng]}
+            radius={7}
+            pathOptions={{ color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 1 }}
+          />
+        )}
 
         {/* Polilínea de ruta */}
         {allPolylinePoints.length > 0 && (

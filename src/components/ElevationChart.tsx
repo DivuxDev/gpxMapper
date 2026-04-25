@@ -7,10 +7,12 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
-import type { ElevationPoint } from '../types'
+import type { ElevationPoint, LatLng } from '../types'
+import { useT } from '../hooks/useT'
 
 interface ElevationChartProps {
   data: ElevationPoint[]
+  onHoverPoint?: (latlng: LatLng | null) => void
 }
 
 interface TooltipPayloadItem {
@@ -22,10 +24,10 @@ interface TooltipPayloadItem {
 function CustomTooltip({
   active,
   payload,
-}: {
+}: Readonly<{
   active?: boolean
   payload?: TooltipPayloadItem[]
-}) {
+}>) {
   if (!active || !payload?.length) return null
   const { distance, elevation } = payload[0].payload
   return (
@@ -37,18 +39,27 @@ function CustomTooltip({
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
-export function ElevationChart({ data }: ElevationChartProps) {
+export function ElevationChart({ data, onHoverPoint }: Readonly<ElevationChartProps>) {
+  const t = useT()
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-        Añade puntos al mapa para ver el perfil de elevación
+        {t.elevationEmpty}
       </div>
     )
   }
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+      <AreaChart
+        data={data}
+        margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+        onMouseMove={(e) => {
+          const pt = e?.activePayload?.[0]?.payload as ElevationPoint | undefined
+          if (pt && onHoverPoint) onHoverPoint({ lat: pt.lat, lng: pt.lng })
+        }}
+        onMouseLeave={() => onHoverPoint?.(null)}
+      >
         <defs>
           <linearGradient id="elevGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />

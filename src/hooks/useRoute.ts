@@ -1,6 +1,7 @@
 import type { LatLng, RouteSegment, ElevationPoint } from '../types'
 import { fetchRoute } from '../services/graphhopper'
 import { useRouteStore } from '../store/useRouteStore'
+import { translations } from '../i18n'
 
 /**
  * Hook principal de lógica de ruta.
@@ -33,6 +34,7 @@ export function useRoute() {
         from,
         to,
         store.routingProfile,
+        useRouteStore.getState().locale,
       )
 
       const segment: RouteSegment = {
@@ -45,7 +47,8 @@ export function useRoute() {
       // Recalcular perfil de elevación completo
       _rebuildElevationProfile()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al trazar la ruta'
+      const t = translations[useRouteStore.getState().locale]
+      const msg = err instanceof Error ? err.message : t.errorRoute
       store.setRoutingError(msg)
     } finally {
       store.setIsRouting(false)
@@ -77,6 +80,7 @@ export function useRoute() {
             from,
             to,
             store.routingProfile,
+            useRouteStore.getState().locale,
           )
           store.addSegment({ fromIndex, points, distance })
         }),
@@ -84,7 +88,8 @@ export function useRoute() {
 
       _rebuildElevationProfile()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al recalcular la ruta'
+      const t = translations[useRouteStore.getState().locale]
+      const msg = err instanceof Error ? err.message : t.errorRecalc
       store.setRoutingError(msg)
     } finally {
       store.setIsRouting(false)
@@ -104,11 +109,14 @@ export function useRoute() {
 
     for (const segment of segments) {
       for (let i = 0; i < segment.points.length; i++) {
-        const pt = segment.points[i] as LatLng & { alt?: number }
-        // GraphHopper con elevation=true devuelve [lng, lat, ele] en las coordenadas
-        // pero ya los mapeamos a LatLng; la elevación viaja como propiedad extra
+        const pt = segment.points[i] as LatLng & { ele?: number }
         const elevation = (pt as unknown as { ele?: number }).ele ?? 0
-        profile.push({ distance: +(accumulated / 1000).toFixed(3), elevation })
+        profile.push({
+          distance: +(accumulated / 1000).toFixed(3),
+          elevation,
+          lat: pt.lat,
+          lng: pt.lng,
+        })
 
         if (i < segment.points.length - 1) {
           accumulated += _haversine(segment.points[i], segment.points[i + 1])
@@ -130,8 +138,14 @@ export function useRoute() {
     totalDistance: store.totalDistance(),
     totalElevationGain: store.totalElevationGain(),
     clearRoute: store.clearRoute,
-    undo: store.undo,
-    redo: store.redo,
+    undo() {
+      store.undo()
+      setTimeout(() => _rebuildElevationProfile(), 0)
+    },
+    redo() {
+      store.redo()
+      setTimeout(() => _rebuildElevationProfile(), 0)
+    },
     removeWaypoint: store.removeWaypoint,
     canUndo: store.past.length > 0,
     canRedo: store.future.length > 0,

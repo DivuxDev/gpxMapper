@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { useRouteStore } from '../store/useRouteStore'
+import { useT } from '../hooks/useT'
 import type { MapLayer } from '../types'
-
-const LAYERS: { key: MapLayer; label: string; emoji: string }[] = [
-  { key: 'osm',      label: 'Mapa',    emoji: '🗺️' },
-  { key: 'topo',     label: 'Topo',    emoji: '⛰️' },
-  { key: 'satellite',label: 'Satélite',emoji: '🛰️' },
-  { key: 'cycle',    label: 'Ciclismo',emoji: '🚴' },
-  { key: 'esritopo', label: 'Relieve', emoji: '🌍' },
-]
 
 export function LayerControl() {
   const [open, setOpen] = useState(false)
   const activeLayer = useRouteStore((s) => s.activeLayer)
   const setActiveLayer = useRouteStore((s) => s.setActiveLayer)
+  const t = useT()
+
+  const LAYERS = [
+    { key: 'osm'      as MapLayer, label: t.layerOsm,       emoji: '🗺️' },
+    { key: 'topo'     as MapLayer, label: t.layerTopo,      emoji: '⛰️' },
+    { key: 'satellite'as MapLayer, label: t.layerSatellite, emoji: '🛰️' },
+    { key: 'cycle'    as MapLayer, label: t.layerCycle,     emoji: '🚴' },
+    { key: 'esritopo' as MapLayer, label: t.layerEsritopo,  emoji: '🌍' },
+  ]
 
   const currentLayer = LAYERS.find((l) => l.key === activeLayer)!
 
@@ -23,7 +25,7 @@ export function LayerControl() {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-gray-100 text-sm font-medium
           active:scale-95 transition-transform min-h-[44px] min-w-[44px]"
-        title="Capas y perfil"
+        title={t.layersButton}
       >
         <span>{currentLayer.emoji}</span>
         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -36,7 +38,7 @@ export function LayerControl() {
           {/* Overlay para cerrar */}
           <button
             type="button"
-            aria-label="Cerrar capas"
+            aria-label={t.closeLayers}
             className="fixed inset-0 z-10 w-full h-full cursor-default"
             onClick={() => setOpen(false)}
           />
@@ -44,7 +46,7 @@ export function LayerControl() {
           {/* Panel — se abre hacia abajo, alineado a la derecha */}
           <div className="absolute top-full mt-2 right-0 z-20 bg-white rounded-2xl shadow-xl
             border border-gray-100 p-3 w-64">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Capa</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{t.layerTitle}</p>
             <div className="grid grid-cols-3 gap-1">
               {LAYERS.map((l) => (
                 <button
