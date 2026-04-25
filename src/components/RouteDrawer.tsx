@@ -3,11 +3,10 @@ import { useRoute } from '../hooks/useRoute'
 import { useRouteStore } from '../store/useRouteStore'
 import { ElevationChart } from './ElevationChart'
 import { ExportButton } from './ExportButton'
-import { LayerControl } from './LayerControl'
 import { formatDistance, formatElevation } from '../utils/formatters'
 
 // ── Pill de estadística ────────────────────────────────────────────────────────
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex flex-col items-center bg-trail-50 rounded-xl px-4 py-2 min-w-[80px]">
       <span className="text-xs text-trail-600 font-medium">{label}</span>
@@ -50,31 +49,31 @@ export function RouteDrawer() {
     startY.current = null
   }
 
-  const handleHeight = drawerOpen ? 'h-64 sm:h-72' : 'h-20'
+  const drawerStyle = drawerOpen
+    ? { height: 'calc(16rem + env(safe-area-inset-bottom, 0px))' }
+    : { height: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }
 
   return (
     <div
-      className={`
+      style={drawerStyle}
+      className="
         fixed bottom-0 left-0 right-0 z-[900]
         bg-white rounded-t-2xl shadow-2xl border-t border-gray-100
         transition-all duration-300 ease-in-out
         flex flex-col
-        ${handleHeight}
-      `}
+      "
     >
-      {/* ── Handle de arrastre ─────────────────────────────────────────────── */}
-      <div
+      {/* ── Handle de arrastre ────────────────────────────────────────────────────── */}
+      <button
+        type="button"
         className="flex justify-center pt-3 pb-1 cursor-pointer flex-shrink-0"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onClick={() => setDrawerOpen(!drawerOpen)}
-        role="button"
         aria-label={drawerOpen ? 'Cerrar panel' : 'Abrir panel'}
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && setDrawerOpen(!drawerOpen)}
       >
         <div className="w-10 h-1.5 rounded-full bg-gray-300" />
-      </div>
+      </button>
 
       {/* ── Barra de estadísticas (siempre visible) ────────────────────────── */}
       <div className="flex items-center justify-between px-4 pb-2 gap-2 flex-shrink-0">
@@ -127,12 +126,11 @@ export function RouteDrawer() {
           </div>
 
           {/* Botones de acción */}
-          <div className="flex gap-2 flex-shrink-0">
-            <LayerControl />
+          <div className="flex gap-2 flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
             <ExportButton />
             <button
               onClick={() => {
-                if (window.confirm('¿Limpiar toda la ruta?')) clearRoute()
+                if (globalThis.confirm('\u00bfLimpiar toda la ruta?')) clearRoute()
               }}
               className="flex-1 px-3 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-medium
                 active:scale-95 transition-transform min-h-[44px]"

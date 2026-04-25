@@ -29,10 +29,10 @@ export interface ElevationPoint {
 }
 
 // ─── Capa de mapa disponible ───────────────────────────────────────────────────
-export type MapLayer = 'osm' | 'topo' | 'satellite'
+export type MapLayer = 'osm' | 'topo' | 'satellite' | 'cycle' | 'esritopo'
 
-// ─── Perfil de routing de GraphHopper ──────────────────────────────────────────
-export type RoutingProfile = 'foot' | 'bike' | 'mtb' | 'racingbike' | 'car'
+// ─── Perfil de routing (solo trail/foot) ────────────────────────────────────────
+export type RoutingProfile = 'foot'
 
 // ─── Respuesta de la API de GraphHopper ────────────────────────────────────────
 export interface GraphHopperRoute {
@@ -43,7 +43,6 @@ export interface GraphHopperRoute {
       coordinates: [number, number, number?][]
     }
     points_encoded: boolean
-    legs?: unknown[]
   }>
   info?: {
     copyrights?: string[]

@@ -1,16 +1,17 @@
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import {
   MapContainer as LeafletMapContainer,
   TileLayer,
   Polyline,
   Marker,
   useMapEvents,
+  useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useRoute } from '../hooks/useRoute'
 import { useRouteStore } from '../store/useRouteStore'
-import type { LatLng } from '../types'
+import type { LatLng, MapLayer } from '../types'
 
 // ── Fix ícono de Leaflet con bundlers (Vite) ────────────────────────────────────
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -24,7 +25,9 @@ L.Icon.Default.mergeOptions({
 function makeWaypointIcon(index: number, total: number) {
   const isFirst = index === 0
   const isLast = index === total - 1
-  const color = isFirst ? '#22c55e' : isLast ? '#ef4444' : '#3b82f6'
+  let color = '#3b82f6'
+  if (isFirst) color = '#22c55e'
+  else if (isLast) color = '#ef4444'
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
       <path d="M14 0C6.27 0 0 6.27 0 14c0 9.94 14 22 14 22S28 23.94 28 14C28 6.27 21.73 0 14 0z"
@@ -40,7 +43,15 @@ function makeWaypointIcon(index: number, total: number) {
 }
 
 // ── Capas de mapa disponibles ───────────────────────────────────────────────────
-const TILE_LAYERS = {
+interface TileLayerDef {
+  url: string
+  attribution: string
+  maxZoom?: number
+  /** URL de capa de superposición opcional (calles / etiquetas encima de la base) */
+  overlay?: string
+}
+
+export const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
   osm: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -48,37 +59,97 @@ const TILE_LAYERS = {
   topo: {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    maxZoom: 17,
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri',
+    attribution: '&copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP &mdash; Esri, HERE, DeLorme',
+    maxZoom: 19,
+    overlay: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
   },
+  cycle: {
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> &mdash; OpenStreetMap contributors',
+    maxZoom: 20,
+  },
+  esritopo: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China',
+    maxZoom: 19,
+  },
+}
+
+// ── Instancia del mapa accesible desde fuera del contexto react-leaflet ────────
+let _mapInstance: L.Map | null = null
+export function getMapInstance() { return _mapInstance }
+
+function MapInstanceSetter() {
+  const map = useMap()
+  useEffect(() => {
+    _mapInstance = map
+    return () => { _mapInstance = null }
+  }, [map])
+  return null
+}
+
+// ── Sub-componente: centra el mapa en la ubicación del usuario al montar ────────
+function GeolocateOnMount() {
+  const map = useMap()
+
+  // Se ejecuta una sola vez al montar gracias al ref
+  const done = useRef(false)
+  if (!done.current) {
+    done.current = true
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.flyTo([pos.coords.latitude, pos.coords.longitude], 13, { duration: 1.2 })
+        },
+        () => {
+          // Permiso denegado o error → fallback España (ya es el centro por defecto)
+        },
+        { timeout: 8000, maximumAge: 60000 },
+      )
+    }
+  }
+
+  return null
 }
 
 // ── Sub-componente: detecta clicks en el mapa ──────────────────────────────────
 interface ClickHandlerProps {
   onMapClick: (latlng: LatLng) => void
+  onCloseMenu: () => void
 }
 
-function ClickHandler({ onMapClick }: ClickHandlerProps) {
+function ClickHandler({ onMapClick, onCloseMenu }: ClickHandlerProps) {
   useMapEvents({
     click(e) {
+      onCloseMenu()
       onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng })
     },
   })
   return null
 }
 
-// ── Sub-componente: marcador arrastrable ───────────────────────────────────────
+// ── Sub-componente: marcador arrastrable con menú contextual ───────────────────
 interface DraggableMarkerProps {
   waypointId: string
   latlng: LatLng
   index: number
   total: number
   onDragEnd: (id: string, latlng: LatLng) => void
+  onMarkerClick: (id: string, x: number, y: number) => void
 }
 
-function DraggableMarker({ waypointId, latlng, index, total, onDragEnd }: DraggableMarkerProps) {
+function DraggableMarker({
+  waypointId,
+  latlng,
+  index,
+  total,
+  onDragEnd,
+  onMarkerClick,
+}: Readonly<DraggableMarkerProps>) {
   const markerRef = useRef<L.Marker>(null)
 
   return (
@@ -88,6 +159,11 @@ function DraggableMarker({ waypointId, latlng, index, total, onDragEnd }: Dragga
       icon={makeWaypointIcon(index, total)}
       draggable={true}
       eventHandlers={{
+        click(e) {
+          // Evitar que el click llegue al mapa (no añadir punto nuevo)
+          e.originalEvent.stopPropagation()
+          onMarkerClick(waypointId, e.containerPoint.x, e.containerPoint.y)
+        },
         dragend() {
           const pos = markerRef.current?.getLatLng()
           if (pos) {
@@ -99,12 +175,54 @@ function DraggableMarker({ waypointId, latlng, index, total, onDragEnd }: Dragga
   )
 }
 
+// ── Menú contextual flotante ───────────────────────────────────────────────────
+interface ContextMenuProps {
+  x: number
+  y: number
+  onDelete: () => void
+  onClose: () => void
+}
+
+function ContextMenu({ x, y, onDelete, onClose }: Readonly<ContextMenuProps>) {
+  return (
+    <>
+      {/* Overlay transparente para cerrar al tocar fuera */}
+      <button
+        type="button"
+        aria-label="Cerrar menú"
+        className="absolute inset-0 z-[1001] w-full h-full cursor-default"
+        onClick={onClose}
+      />
+      <div
+        className="absolute z-[1002] bg-white rounded-2xl shadow-xl border border-gray-100
+          overflow-hidden min-w-[160px]"
+        style={{ left: x, top: y, transform: 'translate(-50%, calc(-100% - 44px))' }}
+      >
+        <button
+          onClick={() => { onDelete(); onClose() }}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600
+            hover:bg-red-50 active:bg-red-100 transition-colors min-h-[44px]"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0" fill="none"
+            stroke="currentColor" strokeWidth={2}>
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Eliminar punto
+        </button>
+      </div>
+    </>
+  )
+}
+
 // ── Componente principal ───────────────────────────────────────────────────────
 export function MapContainer() {
-  const { addPoint, recalcSegmentsForWaypoint, waypoints, segments, isRouting } = useRoute()
+  const { addPoint, recalcSegmentsForWaypoint, removeWaypoint, waypoints, segments, isRouting } = useRoute()
   const activeLayer = useRouteStore((s) => s.activeLayer)
 
   const tileLayer = TILE_LAYERS[activeLayer]
+
+  // Estado del menú contextual: posición en px relativa al contenedor del mapa
+  const [contextMenu, setContextMenu] = useState<{ waypointId: string; x: number; y: number } | null>(null)
 
   // Polilínea combinada de todos los segmentos
   const allPolylinePoints = segments.flatMap((s) =>
@@ -117,27 +235,55 @@ export function MapContainer() {
       {isRouting && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur-sm
           px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium text-trail-700">
-          <span className="w-4 h-4 border-2 border-trail-500 border-t-transparent rounded-full animate-spin" />
-          Trazando ruta…
+          <span
+            className="w-4 h-4 border-2 border-trail-500 border-t-transparent rounded-full animate-spin"
+          />
+          {' '}Trazando ruta…
         </div>
+      )}
+
+      {/* Menú contextual (fuera del LeafletMapContainer para z-index correcto) */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onDelete={() => removeWaypoint(contextMenu.waypointId)}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       <LeafletMapContainer
         center={[40.416775, -3.70379]}
-        zoom={13}
+        zoom={6}
         className="w-full h-full"
         zoomControl={false}
       >
+        {/* Registra la instancia del mapa para uso externo (ej. botones de zoom) */}
+        <MapInstanceSetter />
+
+        {/* Geolocalización al arrancar */}
+        <GeolocateOnMount />
+
         {/* Capa de teselas activa */}
         <TileLayer
           key={activeLayer}
           url={tileLayer.url}
           attribution={tileLayer.attribution}
-          maxZoom={19}
+          maxZoom={tileLayer.maxZoom ?? 19}
         />
 
-        {/* Handler de clicks */}
-        <ClickHandler onMapClick={addPoint} />
+        {/* Overlay de calles/etiquetas (solo para capas que lo tengan, ej. satélite) */}
+        {tileLayer.overlay && (
+          <TileLayer
+            key={`${activeLayer}-overlay`}
+            url={tileLayer.overlay}
+            maxZoom={tileLayer.maxZoom ?? 19}
+            opacity={0.8}
+          />
+        )}
+
+        {/* Handler de clicks en el mapa */}
+        <ClickHandler onMapClick={addPoint} onCloseMenu={() => setContextMenu(null)} />
 
         {/* Polilínea de ruta */}
         {allPolylinePoints.length > 0 && (
@@ -158,6 +304,7 @@ export function MapContainer() {
             index={idx}
             total={waypoints.length}
             onDragEnd={recalcSegmentsForWaypoint}
+            onMarkerClick={(id, x, y) => setContextMenu({ waypointId: id, x, y })}
           />
         ))}
       </LeafletMapContainer>

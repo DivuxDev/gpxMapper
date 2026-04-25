@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { MapContainer } from './components/MapContainer'
+import { MapContainer, getMapInstance } from './components/MapContainer'
 import { RouteDrawer } from './components/RouteDrawer'
+import { LayerControl } from './components/LayerControl'
 
 /**
  * Shell principal de la aplicación.
@@ -37,12 +38,15 @@ export default function App() {
             </span>
           </div>
 
-          {/* Controles de zoom */}
-          <div className="pointer-events-auto flex flex-col bg-white/90 backdrop-blur-sm
-            rounded-2xl shadow-lg overflow-hidden">
-            <ZoomButton delta={1} label="+" />
-            <div className="h-px bg-gray-100" />
-            <ZoomButton delta={-1} label="−" />
+          {/* Controles de zoom + capa — columna derecha */}
+          <div className="pointer-events-auto flex flex-col items-end gap-2">
+            <div className="flex flex-col bg-white/90 backdrop-blur-sm
+              rounded-2xl shadow-lg overflow-hidden">
+              <ZoomButton delta={1} label="+" />
+              <div className="h-px bg-gray-100" />
+              <ZoomButton delta={-1} label="−" />
+            </div>
+            <LayerControl />
           </div>
         </div>
       </header>
@@ -54,16 +58,10 @@ export default function App() {
 }
 
 // ── Botón de zoom que delega al mapa Leaflet ───────────────────────────────────
-function ZoomButton({ delta, label }: { delta: number; label: string }) {
+function ZoomButton({ delta, label }: Readonly<{ delta: number; label: string }>) {
   function handleClick() {
-    // Buscamos la instancia del mapa a través del DOM de Leaflet
-    const mapEl = document.querySelector('.leaflet-container') as HTMLElement & {
-      _leaflet_map?: L.Map
-    }
-    if (mapEl?._leaflet_map) {
-      const m = mapEl._leaflet_map
-      m.setZoom(m.getZoom() + delta)
-    }
+    const map = getMapInstance()
+    if (map) map.setZoom(map.getZoom() + delta)
   }
 
   return (
@@ -78,5 +76,4 @@ function ZoomButton({ delta, label }: { delta: number; label: string }) {
   )
 }
 
-// Necesario para el acceso al mapa en ZoomButton
-import type L from 'leaflet'
+// Fin de App.tsx

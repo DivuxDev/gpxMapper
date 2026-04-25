@@ -2,8 +2,6 @@ import type { LatLng, RouteSegment, ElevationPoint } from '../types'
 import { fetchRoute } from '../services/graphhopper'
 import { useRouteStore } from '../store/useRouteStore'
 
-const API_KEY = import.meta.env.VITE_GRAPHHOPPER_API_KEY as string
-
 /**
  * Hook principal de lógica de ruta.
  * Expone acciones de alto nivel que orquestan llamadas a la API y
@@ -35,7 +33,6 @@ export function useRoute() {
         from,
         to,
         store.routingProfile,
-        API_KEY,
       )
 
       const segment: RouteSegment = {
@@ -80,7 +77,6 @@ export function useRoute() {
             from,
             to,
             store.routingProfile,
-            API_KEY,
           )
           store.addSegment({ fromIndex, points, distance })
         }),
