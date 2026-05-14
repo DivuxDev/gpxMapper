@@ -49,6 +49,22 @@ export function ElevationChart({ data, onHoverPoint }: Readonly<ElevationChartPr
     )
   }
 
+  // Calcular dominio del eje Y para mejor visualización
+  const elevations = data.map((p) => p.elevation)
+  const minElev = Math.min(...elevations)
+  const maxElev = Math.max(...elevations)
+  const range = maxElev - minElev
+  
+  // Asegurar un rango mínimo de 50m para evitar gráficos planos
+  const minRange = 50
+  const effectiveRange = Math.max(range, minRange)
+  const padding = effectiveRange * 0.15 // 15% de padding
+  
+  const yDomain = [
+    Math.max(0, Math.floor(minElev - padding)),
+    Math.ceil(maxElev + padding)
+  ]
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart
@@ -76,6 +92,7 @@ export function ElevationChart({ data, onHoverPoint }: Readonly<ElevationChartPr
         />
         <YAxis
           dataKey="elevation"
+          domain={yDomain}
           tickFormatter={(v: number) => `${v}m`}
           tick={{ fontSize: 10, fill: '#6b7280' }}
           tickLine={false}

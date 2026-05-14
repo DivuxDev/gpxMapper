@@ -60,7 +60,7 @@ export function RouteDrawer() {
   }
 
   const drawerStyle = drawerOpen
-    ? { height: 'calc(16rem + env(safe-area-inset-bottom, 0px))' }
+    ? { height: 'calc(28rem + env(safe-area-inset-bottom, 0px))' }
     : { height: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }
 
   return (
