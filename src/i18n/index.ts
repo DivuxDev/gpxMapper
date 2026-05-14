@@ -16,6 +16,12 @@ export const translations = {
     exportGpx: 'Exportar GPX',
     exported: 'Exportado',
     exportMin2: 'Añade al menos 2 puntos para exportar la ruta.',
+    // Importar
+    importGpx: 'Importar GPX',
+    imported: 'Importado',
+    importError: 'Error al importar el archivo GPX',
+    importInvalidFile: 'Archivo GPX inválido o vacío',
+    importConfirm: '¿Reemplazar la ruta actual con la importada?',
     // Capas
     layerTitle: 'Capa',
     closeLayers: 'Cerrar capas',
@@ -57,6 +63,12 @@ export const translations = {
     exportGpx: 'Export GPX',
     exported: 'Exported',
     exportMin2: 'Add at least 2 points to export the route.',
+    // Import
+    importGpx: 'Import GPX',
+    imported: 'Imported',
+    importError: 'Error importing GPX file',
+    importInvalidFile: 'Invalid or empty GPX file',
+    importConfirm: 'Replace current route with imported one?',
     // Layers
     layerTitle: 'Layer',
     closeLayers: 'Close layers',

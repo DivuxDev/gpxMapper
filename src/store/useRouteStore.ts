@@ -44,6 +44,7 @@ interface RouteState {
   setHoverPoint: (pt: LatLng | null) => void
   setLocale: (locale: Locale) => void
   clearRoute: () => void
+  importRoute: (waypoints: Waypoint[], segments: RouteSegment[]) => void
   undo: () => void
   redo: () => void
 
@@ -149,6 +150,17 @@ export const useRouteStore = create<RouteState>()(
           elevationProfile: [],
           routingError: null,
         }),
+
+      // ── Importar ruta desde GPX ────────────────────────────────────
+      importRoute: (waypoints, segments) => {
+        set((state) => ({
+          past: [...state.past.slice(-29), snapshot(state)],
+          future: [],
+          waypoints,
+          segments,
+          elevationProfile: [], // Se reconstruirá después desde useRoute
+        }))
+      },
 
       // ── Undo ───────────────────────────────────────────────────────────────
       undo: () => {

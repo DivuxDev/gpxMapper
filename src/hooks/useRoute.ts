@@ -2,6 +2,7 @@ import type { LatLng, RouteSegment, ElevationPoint } from '../types'
 import { fetchRoute } from '../services/graphhopper'
 import { useRouteStore } from '../store/useRouteStore'
 import { translations } from '../i18n'
+import { parseGpx, readFileAsText } from '../utils/gpxImport'
 
 /**
  * Hook principal de lógica de ruta.
@@ -127,9 +128,43 @@ export function useRoute() {
     useRouteStore.getState().setElevationProfile(profile)
   }
 
+  /**
+   * Importa una ruta desde un archivo GPX.
+   * Parsea el archivo y carga los waypoints y segmentos al store.
+   */
+  async function importGpx(file: File) {
+    try {
+      const content = await readFileAsText(file)
+      const { waypoints, segments } = parseGpx(content)
+
+      if (waypoints.length === 0) {
+        const t = translations[useRouteStore.getState().locale]
+        throw new Error(t.importInvalidFile)
+      }
+
+      // Confirmar si ya hay datos
+      const currentWaypoints = useRouteStore.getState().waypoints
+      if (currentWaypoints.length > 0) {
+        const t = translations[useRouteStore.getState().locale]
+        if (!confirm(t.importConfirm)) {
+          return
+        }
+      }
+
+      store.importRoute(waypoints, segments)
+      setTimeout(() => _rebuildElevationProfile(), 0)
+    } catch (err) {
+      const t = translations[useRouteStore.getState().locale]
+      const msg = err instanceof Error ? err.message : t.importError
+      store.setRoutingError(msg)
+      throw err
+    }
+  }
+
   return {
     addPoint,
     recalcSegmentsForWaypoint,
+    importGpx,
     waypoints: store.waypoints,
     segments: store.segments,
     elevationProfile: store.elevationProfile,

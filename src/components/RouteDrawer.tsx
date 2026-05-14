@@ -4,6 +4,7 @@ import { useRouteStore } from '../store/useRouteStore'
 import { useT } from '../hooks/useT'
 import { ElevationChart } from './ElevationChart'
 import { ExportButton } from './ExportButton'
+import { ImportButton } from './ImportButton'
 import { formatDistance, formatElevation } from '../utils/formatters'
 
 // ── Pill de estadística ────────────────────────────────────────────────────────
@@ -136,10 +137,15 @@ export function RouteDrawer() {
 
           {/* Botones de acción */}
           <div className="flex gap-2 flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <ImportButton />
             <ExportButton />
+          </div>
+          
+          {/* Botón limpiar */}
+          <div className="flex-shrink-0">
             <button
               onClick={clearRoute}
-              className="flex-1 px-3 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-medium
+              className="w-full px-3 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-medium
                 active:scale-95 transition-transform min-h-[44px]"
             >
               {t.clear}
