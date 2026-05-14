@@ -26,7 +26,7 @@ interface OsrmResponse {
 
 // ── Helpers de elevación (OpenTopoData, SRTM 90 m) ──────────────────────────────
 // Reduce un array a max maxCount puntos equidistantes conservando los extremos
-function samplePoints(points: LatLng[], maxCount: number): LatLng[] {
+export function samplePoints(points: LatLng[], maxCount: number): LatLng[] {
   if (points.length <= maxCount) return points
   const result: LatLng[] = [points[0]]
   const step = (points.length - 1) / (maxCount - 1)
@@ -43,7 +43,7 @@ interface TopoDataResponse {
 
 // Enriquece puntos con elevación via Open-Elevation (soporta CORS con POST).
 // Sin API key. Si la API falla, devuelve ele=0 para no bloquear la ruta.
-async function enrichWithElevation(
+export async function enrichWithElevation(
   points: LatLng[],
 ): Promise<Array<LatLng & { ele: number }>> {
   try {

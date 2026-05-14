@@ -1,5 +1,5 @@
 import type { LatLng, RouteSegment, ElevationPoint } from '../types'
-import { fetchRoute } from '../services/graphhopper'
+import { fetchRoute, enrichWithElevation, samplePoints } from '../services/graphhopper'
 import { useRouteStore } from '../store/useRouteStore'
 import { translations } from '../i18n'
 import { parseGpx, readFileAsText } from '../utils/gpxImport'
@@ -46,7 +46,7 @@ export function useRoute() {
       store.addSegment(segment)
 
       // Recalcular perfil de elevación completo
-      _rebuildElevationProfile()
+      await _rebuildElevationProfile()
     } catch (err) {
       const t = translations[useRouteStore.getState().locale]
       const msg = err instanceof Error ? err.message : t.errorRoute
@@ -87,7 +87,7 @@ export function useRoute() {
         }),
       )
 
-      _rebuildElevationProfile()
+      await _rebuildElevationProfile()
     } catch (err) {
       const t = translations[useRouteStore.getState().locale]
       const msg = err instanceof Error ? err.message : t.errorRecalc
@@ -98,30 +98,40 @@ export function useRoute() {
   }
 
   /** Reconstruye el perfil de elevación a partir de los segmentos actuales */
-  function _rebuildElevationProfile() {
+  async function _rebuildElevationProfile() {
     const segments = useRouteStore.getState().segments
     if (segments.length === 0) {
       useRouteStore.getState().setElevationProfile([])
       return
     }
 
+    // Recopilar todos los puntos de todos los segmentos
+    const allPoints: LatLng[] = []
+    for (const segment of segments) {
+      allPoints.push(...segment.points)
+    }
+
+    // Samplear para no sobrecargar la API (máximo 100 puntos)
+    const sampledPoints = samplePoints(allPoints, 100)
+    
+    // Enriquecer con elevación desde Open-Elevation
+    const enrichedPoints = await enrichWithElevation(sampledPoints)
+
+    // Construir el perfil con las elevaciones reales
     const profile: ElevationPoint[] = []
     let accumulated = 0
 
-    for (const segment of segments) {
-      for (let i = 0; i < segment.points.length; i++) {
-        const pt = segment.points[i] as LatLng & { ele?: number }
-        const elevation = (pt as unknown as { ele?: number }).ele ?? 0
-        profile.push({
-          distance: +(accumulated / 1000).toFixed(3),
-          elevation,
-          lat: pt.lat,
-          lng: pt.lng,
-        })
+    for (let i = 0; i < enrichedPoints.length; i++) {
+      const pt = enrichedPoints[i]
+      profile.push({
+        distance: +(accumulated / 1000).toFixed(3),
+        elevation: pt.ele,
+        lat: pt.lat,
+        lng: pt.lng,
+      })
 
-        if (i < segment.points.length - 1) {
-          accumulated += _haversine(segment.points[i], segment.points[i + 1])
-        }
+      if (i < enrichedPoints.length - 1) {
+        accumulated += _haversine(enrichedPoints[i], enrichedPoints[i + 1])
       }
     }
 
@@ -152,7 +162,7 @@ export function useRoute() {
       }
 
       store.importRoute(waypoints, segments)
-      setTimeout(() => _rebuildElevationProfile(), 0)
+      await _rebuildElevationProfile()
     } catch (err) {
       const t = translations[useRouteStore.getState().locale]
       const msg = err instanceof Error ? err.message : t.importError
